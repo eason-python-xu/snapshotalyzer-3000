@@ -16,6 +16,10 @@ def filter_instances(project):
 
     return instances
 
+def has_pending_snapshots(volume):
+    snapshots = list(volume.snapshots.all())
+    return snapshots and snapshots[0].state == 'pending'
+
 @click.group()
 def cli():
     """Shotty manages snapshots"""
@@ -28,7 +32,7 @@ def snapshots():
 @click.option('--project', default=None,
     help="Only snapshots for project (tag Project:<name>)")
 @click.option('--all', 'list_all', default=False, is_flag=True,
-    help="List all snapshots for each volume, not jsut the most recent")    
+    help="List all snapshots for each volume, not jsut the most recent")
 def list_snapshots(project, list_all):
     "List EC2 snapshots"
 
@@ -47,7 +51,7 @@ def list_snapshots(project, list_all):
                 )))
 
                 if s.state == 'completed' and not list_all: break
-                
+
     return
 
 @cli.group('volumes')
@@ -94,6 +98,10 @@ def create_snapshots(project):
         i.wait_until_stopped()
 
         for v in i.volumes.all():
+            if has_pending_snapshot(v):
+                print(" Skipping {0}, snapshot already in progress".format(v.id))
+                continue
+
             print("  Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Created by Snapshotalyzer 3000")
 
